@@ -187,3 +187,17 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f13;color:#1a1a1a;min-heigh
 @keyframes dna{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-12px) scale(.8)}}
 @keyframes typing{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── WALLET ── */
+.top-right{display:flex;align-items:center;gap:10px}
+.wallet-btn{padding:7px 14px;border-radius:8px;border:1px solid rgba(29,158,117,.4);background:rgba(29,158,117,.1);color:#1D9E75;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.wallet-btn:hover{background:rgba(29,158,117,.2)}
+.wallet-connected{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:rgba(29,158,117,.1);border:1px solid rgba(29,158,117,.25);font-size:12px;font-family:monospace;color:#1D9E75}
+.wallet-dot{width:6px;height:6px;border-radius:50%;background:#1D9E75;animation:pulse 2s infinite}
+.wallet-prompt{display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,#FFF7ED,#FFFBEB);border-bottom:1px solid #FDE68A}
+.wp-icon{font-size:24px}
+.wp-text{flex:1;display:flex;flex-direction:column;gap:2px}
+.wp-text strong{font-size:13px;color:#92400E}
+.wp-text span{font-size:11px;color:#B45309}
+.wallet-btn-sm{padding:6px 12px;border-radius:7px;border:1px solid #D97706;background:#FEF3C7;color:#92400E;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.wallet-btn-pay{background:linear-gradient(135deg,#D97706,#F59E0B) !important}

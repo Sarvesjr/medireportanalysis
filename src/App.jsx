@@ -4,35 +4,19 @@ const GROQ_KEY = import.meta.env.VITE_GROQ_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 const ANALYSIS_SYSTEM = `You are MedExplain, an expert AI medical report analysis agent (ERC-8004 identity: sarvesjr_bot on GOAT testnet).
-
 Analyze ONLY the actual values in the medical report. Do not invent values.
-
 For EVERY test value found output exactly one line:
-[ABNORMAL] TestName: Value Unit — plain English explanation of what this means
-[NORMAL] TestName: Value Unit — brief reassurance in plain English
-
+[ABNORMAL] TestName: Value Unit — plain English explanation
+[NORMAL] TestName: Value Unit — brief reassurance
 After all values output exactly 5 lines:
-[QUESTION] specific question this patient should ask their doctor
-
+[QUESTION] specific question for doctor
 Final line:
 [DISCLAIMER] This analysis is not a substitute for professional medical advice. Always consult your doctor.
-
 Only output tagged lines. No extra text.`
 
-const CHAT_SYSTEM = (reportSummary) => `You are MedExplain, a warm and knowledgeable medical report assistant (ERC-8004 agent: sarvesjr_bot).
-
-This patient's medical report findings:
-${reportSummary}
-
-You have full context of their report. Answer questions specifically about THEIR results.
-- Be warm, clear, and reassuring
-- Use plain English, no medical jargon
-- Be specific to their actual values
-- Give practical, actionable advice
-- Keep answers to 3-5 sentences
-- Always end with: "Please consult your doctor for personalized medical advice."
-- Never make definitive diagnoses
-- If asked something unrelated to the report, gently redirect`
+const CHAT_SYSTEM = (reportSummary) => `You are MedExplain, a warm medical report assistant (ERC-8004: sarvesjr_bot).
+Patient report: ${reportSummary}
+Answer specifically about THEIR results. Be warm, clear, 3-5 sentences. End with: Please consult your doctor.`
 
 export default function App() {
   const [step, setStep] = useState(0)
@@ -52,6 +36,7 @@ export default function App() {
   const [chatLoading, setChatLoading] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [walletAddress, setWalletAddress] = useState('')
   const fileRef = useRef()
   const chatEndRef = useRef()
   const chatInputRef = useRef()
@@ -59,6 +44,21 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chat, chatLoading])
+
+  // ── Connect MetaMask ───────────────────────────────────
+  const connectWallet = async () => {
+    try {
+      if (!window.ethereum) {
+        setError('MetaMask not found. Install MetaMask to use real payments.')
+        return
+      }
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      setWalletAddress(accounts[0])
+      setError('')
+    } catch (err) {
+      setError('Wallet connection failed: ' + err.message)
+    }
+  }
 
   const toBase64 = (f) => new Promise((res, rej) => {
     const r = new FileReader()
@@ -122,15 +122,41 @@ export default function App() {
     setStep(1)
   }
 
+  // ── x402 payment simulation with MetaMask sign ─────────
   const handlePay = async () => {
-    setStep(2); setPayStep(0)
-    await new Promise(r => setTimeout(r, 900)); setPayStep(1)
-    await new Promise(r => setTimeout(r, 1000)); setPayStep(2)
-    await new Promise(r => setTimeout(r, 1000))
-    const hash = '0x' + Array.from({ length: 40 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')
-    setTxHash(hash); setPayStep(3)
+    setStep(2); setPayStep(0); setError('')
+    await new Promise(r => setTimeout(r, 800))
+    setPayStep(1)
+
+    // If MetaMask connected — ask user to sign a message (x402 style)
+    if (walletAddress && window.ethereum) {
+      try {
+        setStatusMsg('Sign payment in MetaMask...')
+        const message = `MedExplain x402 Payment\nAgent: sarvesjr_bot\nAmount: 0.50 USDC\nNetwork: GOAT testnet3\nTimestamp: ${Date.now()}`
+        const signature = await window.ethereum.request({
+          method: 'personal_sign',
+          params: [message, walletAddress]
+        })
+        const hash = signature.slice(0, 42)
+        setTxHash(hash)
+        setStatusMsg('Payment confirmed!')
+      } catch (err) {
+        // User rejected — continue with demo hash
+        const hash = '0x' + Array.from({ length: 40 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')
+        setTxHash(hash)
+      }
+    } else {
+      await new Promise(r => setTimeout(r, 1000))
+      const hash = '0x' + Array.from({ length: 40 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')
+      setTxHash(hash)
+    }
+
+    setPayStep(2)
+    await new Promise(r => setTimeout(r, 800))
+    setPayStep(3)
     await new Promise(r => setTimeout(r, 400))
-    setStep(3); runAnalysis()
+    setStep(3)
+    runAnalysis()
   }
 
   const callGroq = async (messages, vision = false) => {
@@ -190,7 +216,7 @@ export default function App() {
       const reportSummary = lines.map(l => l.text).join('\n')
       const welcomeMsg = {
         role: 'agent',
-        text: `Hi! I have analyzed your report and found **${abn} value${abn !== 1 ? 's' : ''}** that need attention. I have your full report in front of me — ask me anything about your specific results, what they mean, what to eat, medications, or next steps. I am here to help!`
+        text: `Hi! I have analyzed your report and found **${abn} value${abn !== 1 ? 's' : ''}** that need attention. Ask me anything about your results!`
       }
       setChat([welcomeMsg])
       setChatHistory([
@@ -217,7 +243,7 @@ export default function App() {
       setChat(c => [...c, { role: 'agent', text: raw }])
       setChatHistory(h => [...h, { role: 'assistant', content: raw }])
     } catch {
-      setChat(c => [...c, { role: 'agent', text: 'Sorry, I had trouble connecting. Please try again.' }])
+      setChat(c => [...c, { role: 'agent', text: 'Sorry, could not connect. Please try again.' }])
     }
     setChatLoading(false)
     setTimeout(() => chatInputRef.current?.focus(), 100)
@@ -233,7 +259,6 @@ export default function App() {
   const abnCount = report.filter(r => r.type === 'abnormal').length
   const norCount = report.filter(r => r.type === 'normal').length
   const queCount = report.filter(r => r.type === 'question').length
-
   const formatText = (text) => text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 
   return (
@@ -249,10 +274,19 @@ export default function App() {
             <span className="logo-text">MedExplain</span>
             <span className="logo-badge">AI Agent</span>
           </div>
-          <div className="top-badges">
-            <span className="tbadge">x402</span>
-            <span className="tbadge">ERC-8004</span>
-            <span className="tbadge green">sarvesjr_bot</span>
+          <div className="top-right">
+            <div className="top-badges">
+              <span className="tbadge">x402</span>
+              <span className="tbadge">ERC-8004</span>
+              <span className="tbadge green">sarvesjr_bot</span>
+            </div>
+            {!walletAddress
+              ? <button className="wallet-btn" onClick={connectWallet}>🦊 Connect Wallet</button>
+              : <div className="wallet-connected">
+                  <div className="wallet-dot" />
+                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                </div>
+            }
           </div>
         </div>
       </div>
@@ -261,9 +295,9 @@ export default function App() {
         <div className="hero">
           <div className="hero-blob b1" /><div className="hero-blob b2" /><div className="hero-blob b3" />
           <div className="hero-content">
-            <div className="hero-pill">🔬 Medical AI powered by GOAT testnet</div>
+            <div className="hero-pill">🔬 x402 payments · ERC-8004 · GOAT testnet</div>
             <h1>Your personal<br /><span>medical report</span><br />analyst</h1>
-            <p>Upload any blood test or lab report. Pay with crypto. Get instant AI analysis with plain-English explanations.</p>
+            <p>Upload any blood test or lab report. Pay with crypto via x402. Get instant AI analysis with plain-English explanations.</p>
             <div className="step-track">
               {['Upload', 'Pay', 'Analyze', 'Report'].map((s, i) => (
                 <div key={s} className={`step-item ${i === cur ? 'active' : i < cur ? 'done' : ''}`}>
@@ -279,7 +313,7 @@ export default function App() {
 
       <div className={`main ${step === 4 ? 'results-layout' : ''}`}>
 
-        {error && step <= 1 && (
+        {error && step <= 2 && (
           <div className="err-box">
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -332,7 +366,7 @@ export default function App() {
                   <div className="pbh-icon">💊</div>
                   <div>
                     <div className="pbh-title">Medical Report Analysis</div>
-                    <div className="pbh-sub">AI-powered · Instant results · Private</div>
+                    <div className="pbh-sub">AI-powered · x402 payment · Private</div>
                   </div>
                 </div>
                 <div className="pbh-price">$0.50<span>USDC</span></div>
@@ -342,18 +376,24 @@ export default function App() {
                 <div className="pd-row"><span>Standard</span><code>ERC-8004</code></div>
                 <div className="pd-row"><span>Network</span><code>GOAT testnet3</code></div>
                 <div className="pd-row"><span>Protocol</span><code>x402</code></div>
+                {walletAddress && <div className="pd-row"><span>Wallet</span><code>{walletAddress.slice(0,6)}...{walletAddress.slice(-4)}</code></div>}
               </div>
-              <button className="pay-btn" onClick={handlePay}>
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-                </svg>
-                Pay 0.50 USDC & Analyze
-              </button>
+              {!walletAddress
+                ? <button className="pay-btn" style={{background:'linear-gradient(135deg,#D97706,#F59E0B)'}} onClick={connectWallet}>
+                    🦊 Connect Wallet to Pay
+                  </button>
+                : <button className="pay-btn" onClick={handlePay}>
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                    Pay 0.50 USDC & Analyze
+                  </button>
+              }
               <div className="pay-note">
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
-                Testnet demo — no real funds taken
+                {walletAddress ? 'MetaMask will ask you to sign the x402 payment' : 'Works without wallet too — uses demo payment'}
               </div>
             </div>
           </div>
@@ -362,10 +402,10 @@ export default function App() {
         {step === 2 && (
           <div className="processing-screen">
             <div className="proc-icon">⛓️</div>
-            <h2>Processing payment</h2>
-            <p>Confirming on GOAT testnet...</p>
+            <h2>Processing x402 payment</h2>
+            <p>{statusMsg || 'Confirming on GOAT testnet...'}</p>
             <div className="proc-steps">
-              {['Create x402 order', 'Wallet sign & approve', 'Confirm on-chain'].map((s, i) => (
+              {['Create x402 order', 'Sign in wallet', 'Confirm on-chain'].map((s, i) => (
                 <div key={s} className={`proc-step ${i < payStep ? 'done' : i === payStep ? 'active' : ''}`}>
                   <div className="proc-dot">
                     {i < payStep ? '✓' : i === payStep ? <div className="spinner-sm white" /> : i + 1}
@@ -397,10 +437,7 @@ export default function App() {
               </div>
               <span className="prog-pct">{progress}%</span>
             </div>
-            <div className="tx-pill">
-              <div className="tx-dot" />
-              {txHash.slice(0, 24)}...
-            </div>
+            {txHash && <div className="tx-pill"><div className="tx-dot" />{txHash.slice(0, 24)}...</div>}
           </div>
         )}
 
@@ -414,10 +451,7 @@ export default function App() {
                 </div>
                 <button className="rh-new" onClick={reset}>+ New Report</button>
               </div>
-              <div className="receipt-bar">
-                <div className="rb-dot" />
-                <span>ERC-8004 · sarvesjr_bot · {txHash.slice(0, 18)}...</span>
-              </div>
+              {txHash && <div className="receipt-bar"><div className="rb-dot" /><span>ERC-8004 · sarvesjr_bot · {txHash.slice(0, 20)}...</span></div>}
               <div className="summary-cards">
                 <div className="sc sc-red"><div className="sc-num">{abnCount}</div><div className="sc-label">Abnormal</div></div>
                 <div className="sc sc-green"><div className="sc-num">{norCount}</div><div className="sc-label">Normal</div></div>
@@ -447,9 +481,7 @@ export default function App() {
                   </div>
                 )
               })}
-              <div className="disclaimer-box">
-                ⚠ This analysis is not a substitute for professional medical advice. Always consult your doctor.
-              </div>
+              <div className="disclaimer-box">⚠ Not a substitute for professional medical advice. Always consult your doctor.</div>
             </div>
 
             <div className="chat-col">
@@ -464,8 +496,7 @@ export default function App() {
                 {chat.map((m, i) => (
                   <div key={i} className={`msg-wrap ${m.role}`}>
                     {m.role === 'agent' && <div className="msg-avatar">🤖</div>}
-                    <div className={`msg-bubble ${m.role}`}
-                      dangerouslySetInnerHTML={{ __html: formatText(m.text) }} />
+                    <div className={`msg-bubble ${m.role}`} dangerouslySetInnerHTML={{ __html: formatText(m.text) }} />
                   </div>
                 ))}
                 {chatLoading && (
