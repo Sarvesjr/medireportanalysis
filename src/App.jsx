@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-const GROQ_KEY = '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'
+const GROQ_KEY = import.meta.env.VITE_GROQ_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 const ANALYSIS_SYSTEM = `You are MedExplain, an expert AI medical report analysis agent (ERC-8004 identity: sarvesjr_bot on GOAT testnet).
@@ -188,7 +188,10 @@ export default function App() {
       setProgress(100); setReport(lines)
       const abn = lines.filter(l => l.type === 'abnormal').length
       const reportSummary = lines.map(l => l.text).join('\n')
-      const welcomeMsg = { role: 'agent', text: `Hi! I've analyzed your report and found **${abn} value${abn !== 1 ? 's' : ''}** that need attention. I have your full report in front of me — ask me anything about your specific results, what they mean, what to eat, medications, or next steps. I'm here to help! 💙` }
+      const welcomeMsg = {
+        role: 'agent',
+        text: `Hi! I have analyzed your report and found **${abn} value${abn !== 1 ? 's' : ''}** that need attention. I have your full report in front of me — ask me anything about your specific results, what they mean, what to eat, medications, or next steps. I am here to help!`
+      }
       setChat([welcomeMsg])
       setChatHistory([
         { role: 'system', content: CHAT_SYSTEM(reportSummary) },
@@ -231,9 +234,7 @@ export default function App() {
   const norCount = report.filter(r => r.type === 'normal').length
   const queCount = report.filter(r => r.type === 'question').length
 
-  const formatText = (text) => {
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  }
+  const formatText = (text) => text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 
   return (
     <div className="app">
@@ -287,7 +288,6 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 0 — Upload */}
         {step === 0 && (
           <div className="upload-card">
             <div
@@ -297,9 +297,7 @@ export default function App() {
               onDragLeave={() => setDragOver(false)}
               onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]) }}
             >
-              <div className="drop-icon">
-                {dragOver ? '📂' : '🩺'}
-              </div>
+              <div className="drop-icon">{dragOver ? '📂' : '🩺'}</div>
               <div className="drop-title">{dragOver ? 'Drop it here!' : 'Upload your medical report'}</div>
               <div className="drop-sub">Drag & drop or click to browse</div>
               <div className="drop-formats">
@@ -318,20 +316,16 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 1 — Pay */}
         {step === 1 && (
           <div className="pay-screen">
             <div className="file-confirm">
-              <div className="fc-icon">
-                {fileType === 'image' ? '🖼️' : '📄'}
-              </div>
+              <div className="fc-icon">{fileType === 'image' ? '🖼️' : '📄'}</div>
               <div className="fc-info">
                 <div className="fc-name">{file?.name}</div>
                 <div className="fc-meta">{fileType === 'pdf' ? 'PDF document' : 'Image file'} · Ready to analyze</div>
               </div>
               <button className="fc-change" onClick={reset}>Change</button>
             </div>
-
             <div className="pay-box">
               <div className="pay-box-header">
                 <div className="pbh-left">
@@ -343,21 +337,18 @@ export default function App() {
                 </div>
                 <div className="pbh-price">$0.50<span>USDC</span></div>
               </div>
-
               <div className="pay-details">
                 <div className="pd-row"><span>Agent</span><code>sarvesjr_bot</code></div>
                 <div className="pd-row"><span>Standard</span><code>ERC-8004</code></div>
                 <div className="pd-row"><span>Network</span><code>GOAT testnet3</code></div>
                 <div className="pd-row"><span>Protocol</span><code>x402</code></div>
               </div>
-
               <button className="pay-btn" onClick={handlePay}>
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
                 </svg>
                 Pay 0.50 USDC & Analyze
               </button>
-
               <div className="pay-note">
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -368,7 +359,6 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 2 — Payment processing */}
         {step === 2 && (
           <div className="processing-screen">
             <div className="proc-icon">⛓️</div>
@@ -387,7 +377,6 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 3 — Analyzing */}
         {step === 3 && (
           <div className="analyzing-screen">
             <div className="dna-wrap">
@@ -415,11 +404,8 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 4 — Results */}
         {step === 4 && report.length > 0 && (
           <div className="results-wrap">
-
-            {/* Left: Report */}
             <div className="report-col">
               <div className="report-header">
                 <div className="rh-left">
@@ -428,42 +414,28 @@ export default function App() {
                 </div>
                 <button className="rh-new" onClick={reset}>+ New Report</button>
               </div>
-
               <div className="receipt-bar">
                 <div className="rb-dot" />
                 <span>ERC-8004 · sarvesjr_bot · {txHash.slice(0, 18)}...</span>
               </div>
-
               <div className="summary-cards">
-                <div className="sc sc-red">
-                  <div className="sc-num">{abnCount}</div>
-                  <div className="sc-label">Abnormal</div>
-                </div>
-                <div className="sc sc-green">
-                  <div className="sc-num">{norCount}</div>
-                  <div className="sc-label">Normal</div>
-                </div>
-                <div className="sc sc-purple">
-                  <div className="sc-num">{queCount}</div>
-                  <div className="sc-label">Questions</div>
-                </div>
+                <div className="sc sc-red"><div className="sc-num">{abnCount}</div><div className="sc-label">Abnormal</div></div>
+                <div className="sc sc-green"><div className="sc-num">{norCount}</div><div className="sc-label">Normal</div></div>
+                <div className="sc sc-purple"><div className="sc-num">{queCount}</div><div className="sc-label">Questions</div></div>
               </div>
-
               {['abnormal', 'normal', 'question', 'info'].map(type => {
                 const items = report.filter(r => r.type === type)
                 if (!items.length) return null
                 const config = {
-                  abnormal: { icon: '🔴', title: 'Values needing attention', color: '#E24B4A' },
-                  normal:   { icon: '🟢', title: 'Normal values',            color: '#639922' },
-                  question: { icon: '💬', title: 'Ask your doctor',          color: '#534AB7' },
-                  info:     { icon: '📋', title: 'Important note',           color: '#EF9F27' },
+                  abnormal: { icon: '🔴', title: 'Values needing attention' },
+                  normal:   { icon: '🟢', title: 'Normal values' },
+                  question: { icon: '💬', title: 'Ask your doctor' },
+                  info:     { icon: '📋', title: 'Important note' },
                 }
                 const c = config[type]
                 return (
                   <div key={type} className="report-section">
-                    <div className="rs-title">
-                      <span>{c.icon}</span>{c.title}
-                    </div>
+                    <div className="rs-title"><span>{c.icon}</span>{c.title}</div>
                     {items.map((r, i) => (
                       <div key={i} className={`report-item ri-${type}`} style={{ animationDelay: `${i * 0.06}s` }}>
                         <div className={`ri-badge rb-${type}`}>
@@ -475,13 +447,11 @@ export default function App() {
                   </div>
                 )
               })}
-
               <div className="disclaimer-box">
                 ⚠ This analysis is not a substitute for professional medical advice. Always consult your doctor.
               </div>
             </div>
 
-            {/* Right: Chat */}
             <div className="chat-col">
               <div className="chat-header">
                 <div className="ch-avatar">🤖</div>
@@ -490,7 +460,6 @@ export default function App() {
                   <div className="ch-status"><div className="online-dot" />Online · Has your full report</div>
                 </div>
               </div>
-
               <div className="chat-messages">
                 {chat.map((m, i) => (
                   <div key={i} className={`msg-wrap ${m.role}`}>
@@ -503,24 +472,20 @@ export default function App() {
                   <div className="msg-wrap agent">
                     <div className="msg-avatar">🤖</div>
                     <div className="msg-bubble agent typing">
-                      <div className="typing-dots">
-                        <span /><span /><span />
-                      </div>
+                      <div className="typing-dots"><span /><span /><span /></div>
                     </div>
                   </div>
                 )}
                 <div ref={chatEndRef} />
               </div>
-
               <div className="chat-suggestions">
-                {['What should I eat?', 'How serious is this?', 'What causes low hemoglobin?', 'Do I need medication?'].map(s => (
+                {['What should I eat?', 'How serious is this?', 'What causes these values?', 'Do I need medication?'].map(s => (
                   <button key={s} className="suggestion-chip"
                     onClick={() => { setChatInput(s); chatInputRef.current?.focus() }}>
                     {s}
                   </button>
                 ))}
               </div>
-
               <div className="chat-input-area">
                 <input
                   ref={chatInputRef}
